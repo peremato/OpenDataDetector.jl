@@ -1,0 +1,4 @@
+name = "OpenDataDetector"
+uuid = "1ef31073-047e-4167-a493-b341d932d223"
+authors = ["Pere Mato <pere.mato@cern.ch>"]
+version = "0.1.0"
