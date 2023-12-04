@@ -38,13 +38,14 @@ struct MCParticleIdx <: Integer
     idx::Int32
 end
 Base.iszero(x::MCParticleIdx) = x.idx == 0
-Base.show(io::IO, x::MCParticleIdx) = print(io, "MCParticle#$(x.idx)")
+Base.show(io::IO, x::MCParticleIdx) = print(io, "MCParticles$(x.idx)")
 
 #---For implementation of OneToManyRelation
 struct MCParticles
     idxs::Vector{MCParticleIdx}
     MCParticles() = new(MCParticleIdx[])
 end
+Base.show(io::IO, c::MCParticles) = print(io, "MCParticle#$([Int64(p.idx) for p in c.idxs])")
 
 struct MCParticle
     idx::MCParticleIdx
@@ -70,9 +71,9 @@ end
 
 function MCParticle(;pdg=0, generatorStatus=0, simulatorStatus=0, charge=0, time=0, mass=0,
                     vertex=Vector3d(), endpoint=Vector3d(), momentum=Vector3f(), momentumAtEndpoint=Vector3f(),
-                    spin=Vector3f(), colorFlow=Vector2i(), parent=0, daughters=MCParticles())
+                    spin=Vector3f(), colorFlow=Vector2i(), parents=MCParticles(), daughters=MCParticles())
     MCParticle(0, pdg,generatorStatus, simulatorStatus, charge, time, mass, vertex, endpoint, momentum, momentumAtEndpoint, spin, colorFlow, 
-               parent, daughters)
+               parents, daughters)
 end
 
 Base.convert(::Type{MCParticle}, p::MCParticleIdx) = iszero(p.idx) ? nothing : @inbounds mcparticles[p.idx]
@@ -109,7 +110,8 @@ end
 
 
 p1 = MCParticle(pdg=10)
-p2 = MCParticle(pdg=11, parent=p1)
-
+p2 = MCParticle(pdg=11)
+push!(p2.parents, p1)
+push!(p1.daughters, p2)
 push!(p2.daughters, MCParticle(pdg=99))
 push!(p2.daughters, MCParticle(pdg=100))
