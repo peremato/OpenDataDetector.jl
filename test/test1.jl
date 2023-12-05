@@ -1,117 +1,64 @@
-using Accessors
 
+using Revise
+using EDM4hep
 
-"""
-    Vector3D with doubles
-"""
-struct Vector3d
-    x::Float64
-    y::Float64
-    z::Float64
-    Vector3d(x=0,y=0,z=0) = new(x,y,z)
-end
-"""
-    Vector3D with floats
-"""
-struct Vector3f
-    x::Float32
-    y::Float32
-    z::Float32
-    Vector3f(x=0,y=0,z=0) = new(x,y,z)
-end
-"""
-    Vector2D with Int32
-"""
-struct Vector2i
-    a::Int32
-    b::Int32
-    Vector2i(a=0,b=0) = new(a,b)
-end
+# place the following generator event to the MCParticle collection
+#     name status pdg_id  parent Px       Py    Pz       Energy      Mass
+#  1  !p+!    3   2212    0,0    0.000    0.000 7000.000 7000.000    0.938
+#  2  !p+!    3   2212    0,0    0.000    0.000-7000.000 7000.000    0.938
+# =========================================================================
+#  3  !d!     3      1    1,1    0.750   -1.569   32.191   32.238    0.000
+#  4  !u~!    3     -2    2,2   -3.047  -19.000  -54.629   57.920    0.000
+#  5  !W-!    3    -24    1,2    1.517   -20.68  -20.605   85.925   80.799
+#  6  !gamma! 1     22    1,2   -3.813    0.113   -1.833    4.233    0.000
+#  7  !d!     1      1    5,5   -2.445   28.816    6.082   29.552    0.010
+#  8  !u~!    1     -2    5,5    3.962  -49.498  -26.687   56.373    0.006
 
-"""
-    Description: "The Monte Carlo particle - based on the lcio::MCParticle."
-    Author: "F.Gaede, DESY"
-"""
+p1 = MCParticle(PDG=2212, mass=0.938, momentum=(0.0, 0.0, 7000.0), generatorStatus=3)
+p1 = register(p1)
 
-#---MCParticleIdx--------------------------------------------------------------
-struct MCParticleIdx <: Integer
-    idx::Int32
-end
-Base.iszero(x::MCParticleIdx) = x.idx == 0
-Base.show(io::IO, x::MCParticleIdx) = print(io, "MCParticles$(x.idx)")
+p2 = MCParticle(PDG=2212, mass=0.938, momentum=(0.0, 0.0, -7000.0), generatorStatus=3)
+p2 = register(p2)
 
-#---For implementation of OneToManyRelation
-struct MCParticles
-    idxs::Vector{MCParticleIdx}
-    MCParticles() = new(MCParticleIdx[])
-end
-Base.show(io::IO, c::MCParticles) = print(io, "MCParticle#$([Int64(p.idx) for p in c.idxs])")
+p3 = MCParticle(PDG=1, mass=0.0, momentum=(0.750, -1.569, 32.191), generatorStatus=3)
+p3, p1 = add_parent(p3, p1)
 
-struct MCParticle
-    idx::MCParticleIdx
-    #  Members
-    PDG::Int32                         # PDG code of the particle
-    generatorStatus::Int32             # status of the particle as defined by the generator
-    simulatorStatus::Int32             # status of the particle from the simulation program - use BIT constants below
-    charge::Float32                    # particle charge
-    time::Float32                      # creation time of the particle in [ns] wrt. the event, e.g. for preassigned decays or decays in flight from the simulator.
-    mass::Float64                      # mass of the particle in [GeV]
-    vertex::Vector3d                   # production vertex of the particle in [mm].
-    endpoint::Vector3d                 # endpoint of the particle in [mm]
-    momentum::Vector3f                 # particle 3-momentum at the production vertex in [GeV]
-    momentumAtEndpoint::Vector3f       # particle 3-momentum at the endpoint in [GeV]
-    spin::Vector3f                     # spin (helicity) vector of the particle.
-    colorFlow::Vector2i                # color flow as defined by the generator
-    # OneToManyRelations
-    parents::MCParticles
-    daughters::MCParticles
-    #edm4hep::MCParticle parents #  The parents of this particle.
-    #edm4hep::MCParticle daughters #  The daughters this particle.
-end
+p4 = MCParticle(PDG=-2, mass=0.0, momentum=(-3.047, -19.000, -54.629), generatorStatus=3)
+p4, p2 = add_parent(p4, p2)
 
-function MCParticle(;pdg=0, generatorStatus=0, simulatorStatus=0, charge=0, time=0, mass=0,
-                    vertex=Vector3d(), endpoint=Vector3d(), momentum=Vector3f(), momentumAtEndpoint=Vector3f(),
-                    spin=Vector3f(), colorFlow=Vector2i(), parents=MCParticles(), daughters=MCParticles())
-    MCParticle(0, pdg,generatorStatus, simulatorStatus, charge, time, mass, vertex, endpoint, momentum, momentumAtEndpoint, spin, colorFlow, 
-               parents, daughters)
-end
+p5 = MCParticle(PDG=-24, mass=80.799, momentum=(1.517, -20.68, -20.605), generatorStatus=3)
+p5, p1 = add_parent(p5, p1)
+p5, p2 = add_parent(p5, p2)
 
-Base.convert(::Type{MCParticle}, p::MCParticleIdx) = iszero(p.idx) ? nothing : @inbounds mcparticles[p.idx]
-Base.convert(::Type{MCParticleIdx}, p::MCParticle) = iszero(p.idx) ? register(p) : return p.idx
+p6 = MCParticle(PDG=22, mass=0.0, momentum=(-3.813, 0.113, -1.833), generatorStatus=1)
+p6, p1 = add_parent(p6, p1)
+p6, p2 = add_parent(p6, p2)
 
-Base.push!(c::MCParticles, p::MCParticle) = push!(c.idxs, p)
-Base.iterate(c::MCParticles, i=1) = i > length(c.idxs) ? nothing : (convert(MCParticle, c.idxs[i]), i + 1)
-Base.getindex(c::MCParticles, i::Int64) = convert(MCParticle, c.idxs[i])
-Base.size(c::MCParticles) = size(c.idxs)
-Base.length(c::MCParticles) = length(c.idxs)
-Base.eltype(::Type{MCParticles}) = MCParticle
+p7 = MCParticle(PDG=1, mass=0.0, momentum=(-2.445, 28.816, 6.082), generatorStatus=1)
+p7, p5 = add_parent(p7, p5)
 
+p8 = MCParticle(PDG=-2, mass=0.0, momentum=(3.962, -49.498, -26.687), generatorStatus=1)
+p8, p5 = add_parent(p8, p5)
 
-const mcparticles = MCParticle[]
-const mcparticles_idxs = MCParticleIdx[]
-
-function register(p::MCParticle)
-    !iszero(p.idx) && error("Registering an already registered MCParticle $p")
-    len = length(mcparticles)
-    p = @set p.idx = MCParticleIdx(len + 1)
-    push!(mcparticles, p)
-    return p.idx
-end
-
-
-function Base.getproperty(obj::MCParticle, sym::Symbol)
-    if sym === :parent
-        return iszero(obj.parent_idx) ? nothing : convert(MCParticle, obj.parent_idx)
-    else # fallback to getfield
-        return getfield(obj, sym)
+for p in EDM4hep.mcparticle_objects
+    println("MCParticle $(p.index) with PDG=$(p.PDG) and momentum $(p.momentum) has $(length(p.daughters)) daughters")
+    for d in p.daughters
+        println("   ---> $(d.index) with PDG=$(d.PDG) and momentum $(d.momentum)")
     end
 end
 
+#---Simulation tracking hits
 
+const nsh = 5
+for j in 1:nsh
+  sth1 = SimTrackerHit(cellID=0xabadcaffee, EDep=j*0.000001, position=(j * 10., j * 20., j * 5.), mcparticle=p7)
+  sth1 = register(sth1)
 
-p1 = MCParticle(pdg=10)
-p2 = MCParticle(pdg=11)
-push!(p2.parents, p1)
-push!(p1.daughters, p2)
-push!(p2.daughters, MCParticle(pdg=99))
-push!(p2.daughters, MCParticle(pdg=100))
+  sth2 = SimTrackerHit(cellID=0xcaffeebabe, EDep=j*0.001, position=(-j * 10., -j * 20., -j * 5.), mcparticle=p8)
+  sth2 = register(sth2)
+end
+
+for s in EDM4hep.simtrackerhit_objects
+    println("SimTrackerHit in cellID=$(string(s.cellID, base=16)) with EDep=$(s.EDep) and position=$(s.position) associated to particle $(s.mcparticle.index)")
+end
+
